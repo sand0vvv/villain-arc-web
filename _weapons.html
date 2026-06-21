@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><title>Weapons</title>
+<style>html,body{margin:0;height:100%;background:#0b0713;overflow:hidden}#c{width:100vw;height:100vh;display:block}</style>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+</head><body><canvas id="c"></canvas><script>
+const canvas=document.getElementById("c");
+const engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:true});
+const scene=new BABYLON.Scene(engine);
+scene.clearColor=new BABYLON.Color4(0.043,0.027,0.075,1);
+const cam=new BABYLON.ArcRotateCamera("c",-Math.PI/2,Math.PI/2.6,19,new BABYLON.Vector3(0,-0.4,0),scene);
+cam.fov=0.7;
+const hemi=new BABYLON.HemisphericLight("h",new BABYLON.Vector3(0,1,0),scene);hemi.intensity=0.9;hemi.diffuse=new BABYLON.Color3(0.7,0.7,0.85);
+const key=new BABYLON.DirectionalLight("k",new BABYLON.Vector3(-0.4,-0.8,-0.4),scene);key.intensity=1.6;key.diffuse=new BABYLON.Color3(0.8,0.75,1.0);
+const rim=new BABYLON.DirectionalLight("r",new BABYLON.Vector3(0.5,-0.2,0.5),scene);rim.intensity=1.0;rim.diffuse=new BABYLON.Color3(0.64,0.24,0.94);
+const glow=new BABYLON.GlowLayer("g",scene);glow.intensity=0.5;
+const pipe=new BABYLON.DefaultRenderingPipeline("p",true,scene,[cam]);
+pipe.bloomEnabled=true;pipe.bloomThreshold=0.7;pipe.bloomWeight=0.5;pipe.fxaaEnabled=true;
+pipe.imageProcessingEnabled=true;pipe.imageProcessing.toneMappingEnabled=true;pipe.imageProcessing.contrast=1.15;pipe.imageProcessing.exposure=1.3;
+
+const weapons=["sword","axe","club-hammer","mace","crossbow","staff","blaster-rifle","blaster-pistol","shield"];
+const cols=3, gap=4.6;
+function label(txt,x,y){
+  const dt=new BABYLON.DynamicTexture("l"+txt,{width:256,height:64},scene,false);
+  dt.hasAlpha=true;const ctx=dt.getContext();ctx.clearRect(0,0,256,64);
+  ctx.fillStyle="#c9a3ff";ctx.font="bold 30px Arial";ctx.textAlign="center";ctx.fillText(txt.toUpperCase(),128,44);dt.update();
+  const m=new BABYLON.StandardMaterial("lm"+txt,scene);m.emissiveTexture=dt;m.diffuseTexture=dt;m.opacityTexture=dt;m.disableLighting=true;m.backFaceCulling=false;
+  const p=BABYLON.MeshBuilder.CreatePlane("lp"+txt,{width:3.0,height:0.75},scene);p.material=m;p.position.set(x,y-2.0,0);p.rotation.x=0;
+}
+(async()=>{
+  let loaded=0;
+  for(let i=0;i<weapons.length;i++){
+    const col=i%cols, row=(i/cols)|0;
+    const x=(col-1)*gap, y=(1-row)*gap;
+    try{
+      const r=await BABYLON.SceneLoader.ImportMeshAsync("","","models/weapons/"+weapons[i]+".glb",scene);
+      let mn=1e9,mx=-1e9,minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9;
+      r.meshes.forEach(m=>{if(!m.getBoundingInfo)return;m.computeWorldMatrix(true);m.refreshBoundingInfo();const b=m.getBoundingInfo().boundingBox;mn=Math.min(mn,b.minimumWorld.y);mx=Math.max(mx,b.maximumWorld.y);minx=Math.min(minx,b.minimumWorld.x);maxx=Math.max(maxx,b.maximumWorld.x);minz=Math.min(minz,b.minimumWorld.z);maxz=Math.max(maxz,b.maximumWorld.z);});
+      const dim=Math.max(mx-mn,maxx-minx,maxz-minz)||1;const s=3.0/dim;
+      const root=new BABYLON.TransformNode("w"+i,scene);root.scaling.setAll(s);root.position.set(x,y,0);root.rotation.y=-0.6;
+      const cy=(mn+mx)/2;
+      r.meshes.forEach(m=>{if(!m.parent){m.parent=root;m.position.y-=cy;}});
+      label(weapons[i],x,y);
+      loaded++;
+    }catch(e){}
+  }
+  window._wloaded=loaded;
+})();
+let t=0;scene.registerBeforeRender(()=>{t+=0.005;scene.meshes.forEach(m=>{if(m.parent&&m.parent.name&&m.parent.name[0]==="w")m.parent.rotation.y;});});
+engine.runRenderLoop(()=>scene.render());
+window.addEventListener("resize",()=>engine.resize());
+</script></body></html>

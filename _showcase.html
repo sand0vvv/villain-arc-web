@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Villain Arc — roster showcase</title>
+<style>html,body{margin:0;height:100%;background:#05040a;overflow:hidden}#c{width:100vw;height:100vh;display:block}</style>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById("c");
+const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+const scene = new BABYLON.Scene(engine);
+
+// --- VILLAIN neon-noir palette (mirrors scene.js) ---
+scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.05, 1.0);
+scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+scene.fogColor = new BABYLON.Color3(0.05, 0.03, 0.11);
+scene.fogDensity = 0.0016;
+scene.ambientColor = new BABYLON.Color3(0.12, 0.10, 0.20);
+
+const cam = new BABYLON.ArcRotateCamera("cam", -Math.PI/2, Math.PI/2.35, 5.4, new BABYLON.Vector3(0, 1.05, 0), scene);
+cam.fov = 0.62;
+
+const hemi = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0,1,0), scene);
+hemi.intensity = 0.8; hemi.diffuse = new BABYLON.Color3(0.45,0.52,0.78);
+hemi.groundColor = new BABYLON.Color3(0.10,0.05,0.16); hemi.specular = new BABYLON.Color3(0.2,0.25,0.38);
+const key = new BABYLON.DirectionalLight("key", new BABYLON.Vector3(-0.5,-0.9,-0.35), scene);
+key.intensity = 1.7; key.diffuse = new BABYLON.Color3(0.66,0.74,1.0); key.specular = new BABYLON.Color3(0.5,0.6,0.95);
+const rim = new BABYLON.DirectionalLight("rim", new BABYLON.Vector3(0.6,-0.3,0.5), scene);
+rim.intensity = 1.0; rim.diffuse = new BABYLON.Color3(0.35,1.0,0.45); rim.specular = new BABYLON.Color3(0.3,0.85,0.4);
+
+// dark reflective floor with a FAINT neon grid (diffuse only — no emissive wash)
+const ground = BABYLON.MeshBuilder.CreateGround("g", { width: 60, height: 60 }, scene);
+const gm = new BABYLON.StandardMaterial("gm", scene);
+gm.diffuseColor  = new BABYLON.Color3(0.018, 0.016, 0.035);
+gm.specularColor = new BABYLON.Color3(0.10, 0.13, 0.22);
+gm.specularPower = 48;
+const grid = new BABYLON.DynamicTexture("grid", { width: 512, height: 512 }, scene, false);
+const gc = grid.getContext(); gc.fillStyle = "#040409"; gc.fillRect(0,0,512,512);
+gc.strokeStyle = "rgba(40,150,70,0.55)"; gc.lineWidth = 1.5;  // dim green lines
+for (let i=0;i<=512;i+=64){ gc.beginPath(); gc.moveTo(i,0); gc.lineTo(i,512); gc.stroke(); gc.beginPath(); gc.moveTo(0,i); gc.lineTo(512,i); gc.stroke(); }
+grid.update();
+gm.diffuseTexture = grid;
+gm.diffuseTexture.uScale = gm.diffuseTexture.vScale = 10;
+ground.material = gm;
+
+const pipe = new BABYLON.DefaultRenderingPipeline("pp", true, scene, [cam]);
+pipe.bloomEnabled = true; pipe.bloomThreshold = 0.6; pipe.bloomWeight = 0.8; pipe.bloomKernel = 48;
+pipe.imageProcessingEnabled = true; pipe.imageProcessing.toneMappingEnabled = true;
+pipe.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+pipe.imageProcessing.exposure = 1.75; pipe.imageProcessing.contrast = 1.18;
+pipe.imageProcessing.vignetteEnabled = true; pipe.imageProcessing.vignetteWeight = 2.0;
+pipe.fxaaEnabled = true;
+
+async function load(file, x, idleIdx) {
+  const r = await BABYLON.SceneLoader.ImportMeshAsync("", "", file, scene);
+  // bbox normalize to ~2.0 units tall
+  let minY=1e9,maxY=-1e9;
+  r.meshes.forEach(m=>{ if(!m.getBoundingInfo)return; m.computeWorldMatrix(true); m.refreshBoundingInfo();
+    const b=m.getBoundingInfo().boundingBox; minY=Math.min(minY,b.minimumWorld.y); maxY=Math.max(maxY,b.maximumWorld.y); });
+  const h = (maxY-minY)||1; const s = 2.0/h;
+  const root = new BABYLON.TransformNode("r"+x, scene);
+  root.scaling.setAll(s); root.position.x = x; root.position.y = -minY*s;
+  root.rotation.y = -0.5;
+  r.meshes.forEach(m=>{ if(!m.parent) m.parent = root; });
+  const ag = r.animationGroups || [];
+  ag.forEach((a,i)=>{ a.stop(); if(i===idleIdx) a.start(true,1.0); });
+  return ag.length;
+}
+
+(async () => {
+  // villain_a idle = index 0 ; villain_b idle = index 2
+  const a = await load("models/villains/villain_a.glb", -1.35, 0);
+  const b = await load("models/villains/villain_b.glb",  1.35, 2);
+  window._loaded = { a, b };
+})();
+
+engine.runRenderLoop(() => scene.render());
+window.addEventListener("resize", () => engine.resize());
+</script>
+</body>
+</html>

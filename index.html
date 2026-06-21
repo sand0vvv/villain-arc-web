@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VILLAIN ARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="lobby/lobby.css" />
+</head>
+<body>
+
+<!-- Full-bleed 3D atmospheric scene behind everything -->
+<canvas id="renderCanvas"></canvas>
+<div id="scene-vignette"></div>
+
+<!-- UI root — one screen visible at a time via data-screen -->
+<div id="ui-root" data-screen="landing">
+
+  <!-- ===================== LANDING ===================== -->
+  <section class="screen" data-screen-name="landing">
+    <div class="landing-wrap">
+      <img class="landing-logo" src="lobby/assets/logo.jpg" alt="VILLAIN ARC" />
+      <p class="landing-tag">last villain standing takes the pot</p>
+      <div class="landing-actions">
+        <button class="btn btn-primary btn-lg" id="btn-connect">CONNECT PHANTOM</button>
+        <button class="btn-ghost" id="btn-guest">Play as guest</button>
+      </div>
+      <div class="ticker">
+        <div class="ticker-item"><span class="ticker-dot live"></span><span class="num" id="tk-online">0</span><span class="ticker-lbl">villains online</span></div>
+        <div class="ticker-sep"></div>
+        <div class="ticker-item"><span class="num ember" id="tk-pot">0.0</span><span class="ticker-lbl">SOL in today's pots</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MAIN LOBBY ===================== -->
+  <section class="screen" data-screen-name="lobby">
+
+    <!-- ---- top bar ---- -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <img class="brand-logo" src="lobby/assets/logo.jpg" alt="VILLAIN ARC" />
+      </div>
+      <nav class="nav">
+        <button class="nav-item is-active" data-nav="play">PLAY</button>
+        <button class="nav-item" data-nav="villains">VILLAINS</button>
+        <button class="nav-item" data-nav="leaderboard">LEADERBOARD</button>
+      </nav>
+      <div class="topbar-right">
+        <div class="profile-chip" id="profile-chip">
+          <span class="profile-crest">&#9819;</span>
+          <span class="profile-meta">
+            <span class="profile-handle" id="profile-handle">VILLAIN#666</span>
+            <span class="profile-lvl" id="profile-lvl">LEVEL 42</span>
+          </span>
+        </div>
+        <div class="curr-pills">
+          <div class="curr-pill"><span class="curr-ico token">&#9670;</span><span class="num" id="curr-token">12 450</span></div>
+          <div class="curr-pill"><span class="curr-ico gem">&#9672;</span><span class="num" id="curr-gem">890</span></div>
+        </div>
+        <button class="icon-btn" id="btn-settings" title="Settings">&#9881;</button>
+      </div>
+    </header>
+
+    <!-- ---- 3-column body ---- -->
+    <div class="lobby-layout">
+
+      <!-- LEFT RAIL: daily bounties (SOL rewards, villain-flavoured) -->
+      <aside class="rail rail-left">
+        <div class="panel bounties-card">
+          <div class="panel-head"><span>DAILY BOUNTIES</span><span class="panel-sub" id="bo-reset">&#9201; 12:45:33</span></div>
+          <ul class="bo-list" id="bo-list"></ul>
+          <button class="btn-soft" id="btn-all-bounties">VIEW LEADERBOARD</button>
+        </div>
+      </aside>
+
+      <!-- CENTER STAGE: hero name + level (model rendered on 3D canvas) -->
+      <div class="lobby-stage">
+        <div class="stage-label center">
+          <div class="stage-name" id="lobby-villain-name">SORCERER</div>
+          <div class="stage-level" id="lobby-villain-level">LEVEL 10</div>
+        </div>
+      </div>
+
+      <!-- RIGHT RAIL: latest-from-X feed + mode + PLAY -->
+      <aside class="rail rail-right">
+        <!-- LATEST FROM X — mock now; wired to live Twitter/X feed later (x-agent posts). -->
+        <div class="panel feed-card">
+          <div class="panel-head"><span>LATEST FROM X</span><span class="panel-sub feed-follow" id="feed-handle">@VillainArc</span></div>
+          <ul class="feed-list" id="feed-list"></ul>
+        </div>
+
+        <div class="panel mode-card">
+          <div class="mode-row">
+            <div class="mode-info">
+              <div class="mode-lbl">GAME MODE</div>
+              <div class="mode-name" id="mode-name">BATTLE ROYALE</div>
+              <div class="mode-sub" id="mode-sub">SOLO</div>
+            </div>
+            <button class="btn-soft" id="btn-mode">CHANGE</button>
+          </div>
+        </div>
+
+        <button class="btn btn-cta" id="btn-find">
+          <span class="cta-main">PLAY</span>
+          <span class="cta-sub">FIND MATCH</span>
+        </button>
+      </aside>
+    </div>
+
+    <!-- ---- bottom roster strip ---- -->
+    <footer class="roster-strip" id="roster-strip"></footer>
+  </section>
+
+  <!-- ===================== CHARACTER SELECT ===================== -->
+  <section class="screen" data-screen-name="select">
+    <header class="topbar">
+      <div class="topbar-left"><img class="brand-logo" src="lobby/assets/logo.jpg" alt="VILLAIN ARC" /></div>
+      <div class="select-title">CHOOSE YOUR VILLAIN</div>
+      <div class="topbar-right"><button class="icon-btn" id="btn-select-back" title="Back">&times;</button></div>
+    </header>
+
+    <div class="select-grid">
+      <!-- roster -->
+      <div class="roster" id="roster"></div>
+
+      <!-- center stage uses the shared 3D canvas; just a spacer + name -->
+      <div class="select-stage">
+        <div class="stage-label center">
+          <div class="stage-name" id="select-villain-name">SORCERER</div>
+          <div class="stage-arch" id="select-villain-arch">pale · caster</div>
+        </div>
+      </div>
+
+      <!-- loadout -->
+      <aside class="loadout" id="loadout"></aside>
+    </div>
+
+    <div class="cta-dock">
+      <button class="btn btn-primary btn-lg" id="btn-lock-in">LOCK IN</button>
+    </div>
+  </section>
+
+  <!-- ===================== LEADERBOARD ===================== -->
+  <section class="screen" data-screen-name="leaderboard">
+    <header class="topbar">
+      <div class="topbar-left"><img class="brand-logo" src="lobby/assets/logo.jpg" alt="VILLAIN ARC" /></div>
+      <div class="select-title">LEADERBOARD</div>
+      <div class="topbar-right"><button class="icon-btn" id="btn-lb-back" title="Back">&times;</button></div>
+    </header>
+
+    <div class="lb-wrap">
+      <div class="lb-head">
+        <div class="lb-title">TOP VILLAINS &mdash; ALL TIME</div>
+        <div class="lb-sub">ranked by SOL earned in wager matches</div>
+      </div>
+      <div class="lb-table">
+        <div class="lb-row lb-row-head">
+          <span class="lb-rank">#</span>
+          <span class="lb-name">VILLAIN</span>
+          <span class="lb-num">WINS</span>
+          <span class="lb-num">KILLS</span>
+          <span class="lb-num">EARNINGS</span>
+        </div>
+        <div id="lb-rows"></div>
+      </div>
+      <div class="lb-you" id="lb-you"></div>
+    </div>
+  </section>
+
+  <!-- ===================== QUEUE (stub) ===================== -->
+  <section class="screen" data-screen-name="queue">
+    <div class="queue-wrap">
+      <div class="queue-status" id="queue-status">FINDING A LOBBY<span class="dots"><i>.</i><i>.</i><i>.</i></span></div>
+      <div class="queue-count"><span class="num" id="queue-found">0</span><span class="queue-slash">/</span><span class="num">12</span><span class="queue-lbl">villains found</span></div>
+      <div class="queue-bar"><div class="queue-fill" id="queue-fill"></div></div>
+      <button class="btn-ghost" id="btn-cancel-queue">Cancel</button>
+    </div>
+  </section>
+
+  <!-- ===================== RESULTS (stub) ===================== -->
+  <section class="screen" data-screen-name="results">
+    <div class="results-wrap">
+      <div class="results-place" id="results-place">#1</div>
+      <div class="results-headline" id="results-headline">VICTORY</div>
+      <div class="results-stats">
+        <div class="rstat"><div class="rstat-num" id="rs-kills">6</div><div class="rstat-lbl">kills</div></div>
+        <div class="rstat"><div class="rstat-num" id="rs-dmg">4820</div><div class="rstat-lbl">damage</div></div>
+        <div class="rstat"><div class="rstat-num" id="rs-surv">8:07</div><div class="rstat-lbl">survived</div></div>
+      </div>
+      <div class="results-earn"><span class="re-lbl">EARNINGS</span><span class="re-val ember" id="rs-earn">+5.40 SOL</span></div>
+      <div class="results-actions">
+        <button class="btn-ghost" id="btn-share">SHARE CLIP</button>
+        <button class="btn btn-primary" id="btn-again">PLAY AGAIN</button>
+        <button class="btn-ghost" id="btn-tolobby">LOBBY</button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /ui-root -->
+
+<!-- ===================== SETTINGS MODAL ===================== -->
+<div id="settings-modal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <span>SETTINGS</span>
+      <button class="icon-btn" id="settings-close">&times;</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="tab is-active" data-tab="controls">Controls</button>
+      <button class="tab" data-tab="mouse">Mouse</button>
+      <button class="tab" data-tab="audio">Audio</button>
+      <button class="tab" data-tab="graphics">Graphics</button>
+    </div>
+    <div class="modal-body" id="settings-body"></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="settings-reset">Reset defaults</button>
+      <button class="btn btn-primary" id="settings-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- CDN deps -->
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+<!-- lobby modules (no bundler) -->
+<script src="lobby/state.js"></script>
+<script src="lobby/scene3d.js"></script>
+<script src="lobby/ui.js"></script>
+<script src="lobby/app.js"></script>
+</body>
+</html>

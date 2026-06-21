@@ -1,0 +1,919 @@
+/* ==========================================================================
+   GANK 3D — Fantasy Arena HUD  (WoW + Classic FF style)
+   Ornate DOM overlay above the Babylon.js canvas.
+   Mirrors web/style.css aesthetic. All JS hooks preserved by id/class.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. DESIGN TOKENS
+   -------------------------------------------------------------------------- */
+:root {
+  --bg:           #07060e;
+  --stone-dark:   #0e0b18;
+  --stone-mid:    #17122a;
+  --stone-light:  #241d3a;
+
+  /* gold trim — always gradient, never flat */
+  --gold-hi:      #f0c84a;
+  --gold-mid:     #d8a943;
+  --gold-lo:      #9c7b2e;
+  --gold-shadow:  #5a4010;
+
+  /* accent */
+  --accent:       #b14cff;
+  --accent2:      #ff3d6e;
+  --hp-top:       #ff8fa0;
+  --hp-mid:       #ff4d65;
+  --hp-base:      #c01a38;
+  --mp-top:       #8fd4ff;
+  --mp-base:      #1a5ccc;
+
+  /* text */
+  --text:         #ece6f5;
+  --text-dim:     #8e84aa;
+  --text-gold:    #ffe7a0;
+
+  /* fonts */
+  --font-display: 'Cinzel Decorative', 'Palatino Linotype', serif;
+  --font-label:   'Cinzel', 'Palatino Linotype', serif;
+  --font-body:    'Marcellus', 'Palatino Linotype', serif;
+
+  /* ===== NEON-NOIR HUD TOKENS (battle royale) ===== */
+  --noir-base:    #05040a;          /* near-black indigo */
+  --noir-panel:   rgba(10, 8, 20, 0.55);   /* dark glass */
+  --noir-panel-2: rgba(13, 11, 26, 0.72);  /* denser glass */
+  --noir-edge:    rgba(155, 108, 255, 0.30);/* faint violet border */
+  --noir-edge-hi: rgba(125, 255, 155, 0.45);/* acid green border */
+
+  --neon-green:   #2bd24a;
+  --neon-green-hi:#7dff9b;
+  --neon-violet:  #9b6cff;
+  --neon-violet-hi:#c9a3ff;
+  --neon-cyan:    #5fe3ff;
+  --neon-mag:     #ff2a6d;          /* danger / storm / low-hp */
+
+  --font-mono:    ui-monospace, 'SF Mono', 'Cascadia Mono', 'Consolas', monospace;
+}
+
+/* --------------------------------------------------------------------------
+   1. RESET & BASE
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#renderCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   2. TITLE SCREEN  (#title)
+   Ornate join gate — carved stone panel, forged gold frame, hero tiles.
+   -------------------------------------------------------------------------- */
+#title {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 20;
+  /* deep portal-glow radial bg */
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(80, 40, 160, 0.30) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 100%, rgba(40, 10, 80, 0.45) 0%, transparent 55%),
+    linear-gradient(180deg, #0d0a1a 0%, #07060e 100%);
+}
+
+/* Animated bg shimmer — GPU only (opacity), no layout thrash */
+#title::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 60%, rgba(177, 76, 255, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 40%, rgba(216, 169, 67, 0.05) 0%, transparent 50%);
+  animation: titlepulse 6s ease-in-out infinite alternate;
+}
+@keyframes titlepulse {
+  from { opacity: 0.7; }
+  to   { opacity: 1.0; }
+}
+
+/* Inner card — stone panel with forged gold frame */
+.title-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: clamp(28px, 3.5vw, 48px) clamp(28px, 4vw, 56px);
+  border-radius: 10px;
+  max-width: clamp(340px, 40vw, 500px);
+  width: 92%;
+  background:
+    linear-gradient(175deg, rgba(30, 20, 50, 0.98) 0%, rgba(10, 7, 20, 0.98) 100%) padding-box,
+    linear-gradient(160deg, var(--gold-hi) 0%, var(--gold-mid) 35%, var(--gold-lo) 65%, var(--gold-shadow) 100%) border-box;
+  border: 3px solid transparent;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.85),
+    0 0 60px rgba(177, 76, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.60),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* Corner rivet dots */
+.title-card::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 7px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 0% 0%,   var(--gold-mid) 0%, var(--gold-mid) 28%, transparent 30%) 0 0 / 12px 12px no-repeat,
+    radial-gradient(circle at 100% 0%,  var(--gold-mid) 0%, var(--gold-mid) 28%, transparent 30%) 100% 0 / 12px 12px no-repeat,
+    radial-gradient(circle at 0% 100%,  var(--gold-mid) 0%, var(--gold-mid) 28%, transparent 30%) 0 100% / 12px 12px no-repeat,
+    radial-gradient(circle at 100% 100%,var(--gold-mid) 0%, var(--gold-mid) 28%, transparent 30%) 100% 100% / 12px 12px no-repeat;
+  opacity: 0.7;
+}
+
+/* Crown ornament divider */
+.title-crown {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--gold-lo)  18%,
+    var(--gold-hi)  50%,
+    var(--gold-lo)  82%,
+    transparent 100%
+  );
+  position: relative;
+  margin-bottom: 4px;
+}
+.title-crown::before,
+.title-crown::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold-mid);
+  box-shadow: 0 0 6px var(--gold-mid);
+}
+.title-crown::before { left: 18%; }
+.title-crown::after  { right: 18%; }
+
+/* GANK logotype */
+#title h1 {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 6.5vw, 80px);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: var(--gold-hi);
+  text-shadow:
+    0 0 30px rgba(240, 200, 74, 0.65),
+    0 0 70px rgba(240, 200, 74, 0.25),
+    0 2px 0 rgba(0, 0, 0, 0.9);
+  line-height: 1.05;
+}
+
+.title-sub {
+  font-family: var(--font-label);
+  font-size: clamp(10px, 1vw, 13px);
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* Name input */
+#nameInput {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 5px;
+  background:
+    linear-gradient(180deg, rgba(10, 7, 20, 0.95), rgba(18, 12, 32, 0.95)) padding-box,
+    linear-gradient(180deg, rgba(120, 90, 30, 0.6), rgba(60, 45, 15, 0.6)) border-box;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-family: var(--font-label);
+  font-size: clamp(13px, 1.2vw, 16px);
+  letter-spacing: 0.06em;
+  text-align: center;
+  outline: none;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: box-shadow 0.15s ease;
+}
+#nameInput::placeholder {
+  color: rgba(140, 120, 160, 0.55);
+  font-style: italic;
+}
+#nameInput:focus {
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(216, 169, 67, 0.35),
+    0 0 10px rgba(216, 169, 67, 0.15);
+}
+
+/* Hero selection grid */
+.choose-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--gold-mid);
+  text-align: center;
+}
+
+.heroes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 440px;
+}
+
+.hero {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 4px;
+  /* stone socket with gold bevel */
+  background:
+    linear-gradient(175deg, rgba(22, 14, 36, 0.97), rgba(10, 6, 18, 0.97)) padding-box,
+    linear-gradient(180deg, var(--gold-lo), var(--gold-shadow)) border-box;
+  border: 2px solid transparent;
+  color: var(--text-dim);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.7),
+    inset 0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  transition: transform 0.08s ease, box-shadow 0.1s ease;
+}
+.hero:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.75),
+    inset 0 2px 6px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.hero.sel {
+  background:
+    linear-gradient(175deg, rgba(28, 18, 46, 0.97), rgba(12, 8, 22, 0.97)) padding-box,
+    linear-gradient(180deg, var(--gold-hi), var(--gold-lo)) border-box;
+  color: var(--text-gold);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.8),
+    0 0 16px rgba(216, 169, 67, 0.40),
+    inset 0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Play button */
+#playBtn {
+  width: 100%;
+  padding: clamp(11px, 1.3vw, 16px) 20px;
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: clamp(13px, 1.3vw, 17px);
+  letter-spacing: 0.22em;
+  color: var(--text-gold);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(55, 40, 10, 0.97), rgba(26, 18, 4, 0.97)) padding-box,
+    linear-gradient(180deg, var(--gold-hi) 0%, var(--gold-lo) 100%) border-box;
+  border: 2px solid transparent;
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(216, 169, 67, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.50);
+  transition: filter 0.1s ease, transform 0.08s ease;
+}
+#playBtn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 50%);
+  pointer-events: none;
+}
+#playBtn:hover {
+  filter: brightness(1.2);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.75),
+    0 0 30px rgba(216, 169, 67, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.50);
+}
+#playBtn:active  { transform: scale(0.97); filter: brightness(0.95); }
+#playBtn:disabled { opacity: 0.5; cursor: default; }
+
+.title-hint {
+  font-family: var(--font-label);
+  font-size: clamp(9px, 0.8vw, 11px);
+  letter-spacing: 0.05em;
+  color: rgba(110, 100, 130, 0.70);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ==========================================================================
+   NEON-NOIR BATTLE-ROYALE HUD  (sections 3–15)
+   Dark glass + thin neon edges. Lean, minimal, reads over a dark 3D scene.
+   All hud.js hooks preserved by id. Stats use a techy monospace.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   3. HUD SHELL  (#hud)
+   Pointer-events none globally; controls re-enabled individually.
+   -------------------------------------------------------------------------- */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   4. TOP-CENTER CLUSTER  (#topcenter > #alivebox + #stormbox[#timer])
+   ALIVE counter = BR signature stat. Storm timer beneath it.
+   JS writes: alivev.textContent = N ; timer.textContent = "M:SS"
+   -------------------------------------------------------------------------- */
+#topcenter {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ALIVE counter — big, neon-green, glass pill */
+#alivebox {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 5px 20px 6px;
+  border-radius: 6px;
+  background: var(--noir-panel);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--noir-edge-hi);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(43, 210, 74, 0.18),
+    inset 0 0 14px rgba(43, 210, 74, 0.06);
+}
+#alivev {
+  font-family: var(--font-mono);
+  font-size: clamp(26px, 3.4vw, 42px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--neon-green-hi);
+  text-shadow: 0 0 14px rgba(43, 210, 74, 0.7), 0 2px 5px rgba(0, 0, 0, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+.alive-tag {
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 0.85vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: var(--neon-green);
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(43, 210, 74, 0.4);
+}
+
+/* Storm timer — violet glass, labelled */
+#stormbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 16px 4px;
+  border-radius: 5px;
+  background: var(--noir-panel);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--noir-edge);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.storm-tag {
+  font-family: var(--font-mono);
+  font-size: clamp(8px, 0.7vw, 10px);
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--neon-violet-hi);
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(155, 108, 255, 0.5);
+}
+#timer {
+  font-family: var(--font-mono);
+  font-size: clamp(16px, 1.8vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(155, 108, 255, 0.55), 0 1px 3px rgba(0, 0, 0, 0.9);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Storm urgent — JS adds .urgent to #stormbox when time is low */
+#stormbox.urgent {
+  border-color: var(--neon-mag);
+  box-shadow: 0 0 20px rgba(255, 42, 109, 0.35), 0 4px 14px rgba(0, 0, 0, 0.5);
+  animation: stormpulse 1s ease-in-out infinite;
+}
+#stormbox.urgent .storm-tag { color: var(--neon-mag); text-shadow: 0 0 8px rgba(255, 42, 109, 0.6); }
+#stormbox.urgent #timer     { color: #ffd2e0; text-shadow: 0 0 12px rgba(255, 42, 109, 0.7); }
+@keyframes stormpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.62; } }
+
+/* --------------------------------------------------------------------------
+   5. ELIMINATIONS LEADERBOARD  (#board)
+   JS writes: board.innerHTML = divs with class "row" and optionally "me"
+   CRITICAL: .row and .me class names are hard-coded in hud.js
+   -------------------------------------------------------------------------- */
+#board {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  min-width: clamp(150px, 13vw, 190px);
+  background: var(--noir-panel);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--noir-edge);
+  border-radius: 6px;
+  padding: 0;
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(155, 108, 255, 0.05);
+  overflow: hidden;
+}
+
+/* Header cap — renamed from MOST WANTED to ELIMINATIONS */
+#board::before {
+  content: "ELIMINATIONS";
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.30em;
+  color: var(--neon-violet-hi);
+  text-align: center;
+  padding: 6px 10px 5px;
+  background: linear-gradient(180deg, rgba(155, 108, 255, 0.14), rgba(155, 108, 255, 0.02));
+  border-bottom: 1px solid;
+  border-image: linear-gradient(90deg, transparent, var(--neon-violet), transparent) 1;
+  text-shadow: 0 0 8px rgba(155, 108, 255, 0.5);
+}
+
+/* Row — injected by hud.js as innerHTML */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: clamp(11px, 0.9vw, 13px);
+  padding: 5px 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  transition: opacity 0.3s ease;
+}
+.row span:last-child {
+  color: var(--neon-green-hi);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 6px rgba(43, 210, 74, 0.35);
+}
+.row:last-child { border-bottom: none; }
+
+/* My own row — green highlight (hud.js adds class "me") */
+.row.me {
+  color: var(--neon-green-hi);
+  background: rgba(43, 210, 74, 0.10);
+  box-shadow: inset 2px 0 0 var(--neon-green);
+}
+
+/* --------------------------------------------------------------------------
+   6. BOTTOM HUD SHELL  (#bottomhud)
+   Flexbox row: HP gauge | center column | MP gauge
+   -------------------------------------------------------------------------- */
+#bottomhud {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(14px, 2vw, 30px);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   7. STAT GAUGES  (.statbar > .statbar-tag + .statbar-track[#hpfill|#mpfill] + #hpv|#mpv)
+   Sleek horizontal neon bars (replaces the old liquid orbs).
+   JS writes: hpfill.style.width / mpfill.style.width (fill %), hpv/mpv.textContent
+   CRITICAL: #hpfill / #mpfill are WIDTH-driven; hud.js sets style.width.
+   -------------------------------------------------------------------------- */
+.statbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: clamp(180px, 17vw, 240px);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--noir-panel);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--noir-edge);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+.statbar-tag {
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 0.8vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  width: 22px;
+  flex-shrink: 0;
+}
+.statbar-track {
+  position: relative;
+  flex: 1;
+  height: clamp(12px, 1.3vw, 16px);
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  /* segment ticks */
+  background-image: repeating-linear-gradient(
+    90deg, transparent 0, transparent calc(10% - 1px),
+    rgba(0, 0, 0, 0.5) calc(10% - 1px), rgba(0, 0, 0, 0.5) 10%
+  );
+}
+#hpv, #mpv {
+  font-family: var(--font-mono);
+  font-size: clamp(13px, 1.2vw, 16px);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  min-width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* HP fill — green normally, magenta when low (hud.js toggles .low on #healthbar) */
+#hpfill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg, var(--neon-green) 0%, var(--neon-green-hi) 100%);
+  box-shadow: 0 0 12px rgba(43, 210, 74, 0.55), inset 0 0 6px rgba(255, 255, 255, 0.18);
+  transition: width 0.18s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+#healthbar.low #hpfill {
+  background: linear-gradient(90deg, var(--neon-mag) 0%, #ff6a9a 100%);
+  box-shadow: 0 0 14px rgba(255, 42, 109, 0.7), inset 0 0 6px rgba(255, 255, 255, 0.2);
+}
+#healthbar.low { border-color: var(--neon-mag); box-shadow: 0 0 18px rgba(255, 42, 109, 0.25), 0 6px 20px rgba(0, 0, 0, 0.5); }
+#healthbar.low #hpv { color: #ffd2e0; }
+
+/* MP fill — violet→cyan */
+#mpfill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg, var(--neon-violet) 0%, var(--neon-cyan) 100%);
+  box-shadow: 0 0 12px rgba(155, 108, 255, 0.5), inset 0 0 6px rgba(255, 255, 255, 0.18);
+  transition: width 0.18s ease;
+}
+
+/* --------------------------------------------------------------------------
+   8. CENTER COLUMN  (#centercol > #abilitybar + #upgpanel)
+   -------------------------------------------------------------------------- */
+#centercol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   9. ABILITY BAR  (#abilitybar > .ability[#ab-fire] + .ability[#ab-root])
+   CRITICAL: #ab-fire / #ab-root each keep a .cd overlay + .key label.
+   .cd is height-driven from top (cooldown sweep) — preserved.
+   -------------------------------------------------------------------------- */
+#abilitybar {
+  display: flex;
+  gap: clamp(8px, 1vw, 14px);
+  align-items: flex-end;
+}
+
+.ability {
+  position: relative;
+  width:  clamp(58px, 5.3vw, 70px);
+  height: clamp(58px, 5.3vw, 70px);
+  border-radius: 8px;
+  cursor: default;
+  pointer-events: none;
+  background: var(--noir-panel-2);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--noir-edge);
+  box-shadow:
+    0 5px 16px rgba(0, 0, 0, 0.55),
+    inset 0 0 12px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+#ab-fire { border-color: var(--noir-edge-hi); box-shadow: 0 5px 16px rgba(0,0,0,0.55), 0 0 14px rgba(43,210,74,0.18), inset 0 0 12px rgba(0,0,0,0.45); }
+#ab-root { border-color: var(--noir-edge);    box-shadow: 0 5px 16px rgba(0,0,0,0.55), 0 0 14px rgba(155,108,255,0.18), inset 0 0 12px rgba(0,0,0,0.45); }
+
+.ability-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+/* Icon */
+.ability .ico {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(24px, 2.5vw, 32px);
+  z-index: 2;
+  filter: drop-shadow(0 0 8px rgba(125, 255, 155, 0.5));
+}
+#ab-root .ico { filter: drop-shadow(0 0 8px rgba(201, 163, 255, 0.6)); }
+
+/* Cooldown sweep — height% driven from top (unchanged contract) */
+.ability .cd {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 0%;
+  background: rgba(5, 4, 10, 0.78);
+  z-index: 3;
+  border-bottom: 1px solid rgba(155, 108, 255, 0.4);
+}
+
+/* Hotkey label */
+.ability .key {
+  position: absolute;
+  bottom: 3px;
+  right: 5px;
+  font-family: var(--font-mono);
+  font-size: clamp(8px, 0.7vw, 10px);
+  letter-spacing: 0.04em;
+  color: var(--neon-green-hi);
+  z-index: 5;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+#ab-root .key { color: var(--neon-violet-hi); }
+
+/* --------------------------------------------------------------------------
+   10. UPGRADE SLOTS  (#upgpanel > .upgslot divs injected by hud.js)
+   Class contract: .upgslot .uico .ulvl .ucost .ukey + .maxed/.afford/.poor
+   -------------------------------------------------------------------------- */
+#upgpanel {
+  display: flex;
+  gap: clamp(5px, 0.6vw, 8px);
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.upgslot {
+  position: relative;
+  width:  clamp(46px, 4.2vw, 56px);
+  height: clamp(54px, 5vw, 64px);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 6px;
+  gap: 2px;
+  overflow: hidden;
+  background: var(--noir-panel-2);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--noir-edge);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.55),
+    inset 0 0 10px rgba(0, 0, 0, 0.4);
+  transition: filter 0.09s ease, box-shadow 0.12s ease, transform 0.09s ease;
+}
+.upgslot:hover  { filter: brightness(1.18); }
+.upgslot:active { transform: scale(0.95); }
+
+.upgslot .uico {
+  font-size: clamp(15px, 1.6vw, 21px);
+  line-height: 1;
+  filter: drop-shadow(0 0 5px rgba(125, 255, 155, 0.4));
+  z-index: 2;
+}
+.upgslot .ulvl {
+  font-family: var(--font-mono);
+  font-size: clamp(7px, 0.65vw, 9px);
+  color: var(--neon-green-hi);
+  letter-spacing: 1px;
+  z-index: 2;
+  text-shadow: 0 0 4px rgba(43, 210, 74, 0.5);
+}
+.upgslot .ucost {
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 0.8vw, 11px);
+  font-weight: 700;
+  color: var(--text);
+  z-index: 2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.upgslot .ukey {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-family: var(--font-mono);
+  font-size: clamp(7px, 0.65vw, 9px);
+  color: var(--text-dim);
+  z-index: 2;
+  letter-spacing: 0.04em;
+}
+
+/* Affordable — acid-green glow */
+.upgslot.afford {
+  border-color: var(--noir-edge-hi);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(43, 210, 74, 0.4),
+    inset 0 0 10px rgba(43, 210, 74, 0.08);
+}
+.upgslot.afford .ucost { color: var(--neon-green-hi); text-shadow: 0 0 6px rgba(43, 210, 74, 0.4); }
+/* Too expensive — dimmed */
+.upgslot.poor {
+  opacity: 0.4;
+  filter: saturate(0.3);
+  cursor: default;
+}
+/* Maxed — violet locked */
+.upgslot.maxed {
+  opacity: 0.6;
+  border-color: var(--neon-violet);
+  background: linear-gradient(175deg, rgba(40, 22, 70, 0.7), rgba(18, 10, 34, 0.7));
+  cursor: default;
+}
+
+/* --------------------------------------------------------------------------
+   11. GOLD BOX  (#goldbox > #goldv)  — top right
+   JS writes: goldv.textContent = N + "g"
+   -------------------------------------------------------------------------- */
+#goldbox {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: clamp(14px, 1.3vw, 18px);
+  font-weight: 700;
+  color: var(--neon-green-hi);
+  text-shadow: 0 0 10px rgba(43, 210, 74, 0.4), 0 1px 3px rgba(0, 0, 0, 0.9);
+  font-variant-numeric: tabular-nums;
+  background: var(--noir-panel);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--noir-edge-hi);
+  border-radius: 5px;
+  padding: 6px 14px 6px 11px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 14px rgba(43, 210, 74, 0.12);
+}
+.gold-icon {
+  color: var(--neon-green);
+  font-size: 0.85em;
+  text-shadow: 0 0 8px rgba(43, 210, 74, 0.7);
+}
+
+/* --------------------------------------------------------------------------
+   12. CROSSHAIR / RETICLE  (#crosshair)  — center, neon, third-person aim
+   -------------------------------------------------------------------------- */
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0.85;
+}
+#crosshair .ch-dot {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 3px; height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: var(--neon-green-hi);
+  box-shadow: 0 0 6px rgba(125, 255, 155, 0.9);
+}
+#crosshair .ch-line {
+  position: absolute;
+  background: var(--neon-green-hi);
+  box-shadow: 0 0 5px rgba(125, 255, 155, 0.8);
+}
+#crosshair .ch-t, #crosshair .ch-b { left: 50%; width: 2px; height: 7px; margin-left: -1px; }
+#crosshair .ch-l, #crosshair .ch-r { top: 50%; height: 2px; width: 7px; margin-top: -1px; }
+#crosshair .ch-t { top: 0; }
+#crosshair .ch-b { bottom: 0; }
+#crosshair .ch-l { left: 0; }
+#crosshair .ch-r { right: 0; }
+
+/* --------------------------------------------------------------------------
+   13. ELIMINATED OVERLAY  (#respawn)
+   JS sets style.display = "block" / "none"
+   -------------------------------------------------------------------------- */
+#respawn {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--neon-mag);
+  text-shadow: 0 0 22px rgba(255, 42, 109, 0.7), 0 2px 8px rgba(0, 0, 0, 0.95);
+  background: var(--noir-panel-2);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--neon-mag);
+  border-radius: 8px;
+  padding: 14px 36px;
+  box-shadow: 0 0 40px rgba(255, 42, 109, 0.3), 0 8px 28px rgba(0, 0, 0, 0.7);
+  display: none;
+  pointer-events: none;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   14. HINT BAR  (#hint)
+   -------------------------------------------------------------------------- */
+#hint {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 0.8vw, 11px);
+  letter-spacing: 0.05em;
+  color: rgba(155, 140, 200, 0.5);
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   15. UTILITY
+   -------------------------------------------------------------------------- */
+.hidden { display: none !important; }

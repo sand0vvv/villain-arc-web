@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VILLAIN ARC</title>
+<!-- Ornate fantasy fonts — Cinzel Decorative for headers, Marcellus for labels -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700&family=Marcellus&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<style>
+  /* ===== Match lobby overlay (Villain Arc) ===== */
+  #lobby{
+    display:none; position:fixed; inset:0; z-index:50;
+    align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, rgba(20,8,34,0.82) 0%, rgba(3,2,8,0.96) 70%);
+    font-family:'Cinzel','Marcellus',serif; color:#e8e2f5;
+  }
+  #lobby .lobby-card{ text-align:center; padding:40px 60px; }
+  #lobby .lobby-kicker{
+    font-family:'Cinzel Decorative',serif; font-weight:900;
+    letter-spacing:.32em; font-size:22px; margin:0 0 10px;
+    color:#c9a3ff; text-shadow:0 0 18px rgba(150,60,255,.6);
+  }
+  #lobby #lobby-timer{
+    font-family:'Cinzel Decorative',serif; font-weight:900; font-size:130px; line-height:1;
+    color:#fff; text-shadow:0 0 30px rgba(80,255,140,.55), 0 0 60px rgba(150,60,255,.4);
+    margin:6px 0;
+  }
+  #lobby .lobby-sub{ letter-spacing:.22em; font-size:14px; color:#9b90b8; margin:6px 0 24px; text-transform:uppercase; }
+  #lobby #lobby-count{
+    display:inline-block; padding:8px 26px; border:1px solid rgba(120,80,200,.5);
+    border-radius:4px; letter-spacing:.3em; font-size:20px; color:#7dff9b;
+    background:rgba(20,10,36,.6); box-shadow:0 0 20px rgba(60,255,120,.18) inset;
+  }
+  #lobby .lobby-foot{ margin-top:30px; letter-spacing:.16em; font-size:13px; color:#7a6f94; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+
+<!-- ===== TITLE / HERO SELECT ===== -->
+<div id="title">
+  <div class="title-card">
+    <div class="title-crown"></div>
+    <h1>VILLAIN ARC</h1>
+    <p class="title-sub">BATTLE ROYALE &nbsp;&middot;&nbsp; LAST VILLAIN STANDS</p>
+
+    <input id="nameInput" placeholder="enter your villain name" maxlength="14" autocomplete="off" />
+
+    <p class="choose-label">CHOOSE YOUR VILLAIN</p>
+    <div class="heroes" id="heroes"></div>
+
+    <button id="playBtn">ENTER THE ARENA</button>
+
+    <p class="title-hint">WASD move &nbsp;&middot;&nbsp; mouse look &nbsp;&middot;&nbsp; LMB / SPACE attack &nbsp;&middot;&nbsp; E ability</p>
+  </div>
+</div>
+
+<!-- ===== MATCH LOBBY (shown during waiting/countdown, before the drop) ===== -->
+<div id="lobby">
+  <div class="lobby-card">
+    <p class="lobby-kicker">ENTERING THE ARENA</p>
+    <div id="lobby-timer">5</div>
+    <p class="lobby-sub">villains dropping in&hellip;</p>
+    <div id="lobby-count">1 / 6</div>
+    <p class="lobby-foot">Survive the storm. &nbsp;Last villain standing wins.</p>
+  </div>
+</div>
+
+<!-- ===== ARENA HUD — neon-noir battle royale ===== -->
+<div id="hud">
+
+  <!-- Top-center cluster: ALIVE counter (BR signature) + storm timer -->
+  <div id="topcenter">
+    <!-- ALIVE counter — JS: alivev.textContent = N -->
+    <div id="alivebox">
+      <span id="alivev">6</span>
+      <span class="alive-tag">ALIVE</span>
+    </div>
+    <!-- Storm timer — JS: timer.textContent = "M:SS" -->
+    <div id="stormbox">
+      <span class="storm-tag">STORM CLOSING</span>
+      <span id="timer">3:00</span>
+    </div>
+  </div>
+
+  <!-- Eliminations leaderboard — top left -->
+  <!-- JS writes innerHTML with div.row and optionally .me class -->
+  <div id="board"></div>
+
+  <!-- Gold counter — top right -->
+  <div id="goldbox">
+    <span class="gold-icon">&#9670;</span>
+    <span id="goldv">0g</span>
+  </div>
+
+  <!-- Center reticle — third-person mouse aim -->
+  <div id="crosshair">
+    <span class="ch-line ch-t"></span>
+    <span class="ch-line ch-b"></span>
+    <span class="ch-line ch-l"></span>
+    <span class="ch-line ch-r"></span>
+    <span class="ch-dot"></span>
+  </div>
+
+  <!-- Bottom HUD: HP gauge | ability bar | MP gauge -->
+  <div id="bottomhud">
+
+    <!-- HP gauge — bottom left -->
+    <!-- JS hook: hpfill.style.width (fill %), hpv.textContent (number) -->
+    <div id="healthbar" class="statbar">
+      <span class="statbar-tag">HP</span>
+      <div class="statbar-track"><div id="hpfill"></div></div>
+      <span id="hpv">100</span>
+    </div>
+
+    <!-- Center column: ability bar + upgrade slots -->
+    <div id="centercol">
+      <div id="abilitybar">
+
+        <!-- Attack: LMB / Space / Q -->
+        <div class="ability" id="ab-fire">
+          <div class="ability-inner">
+            <div class="ico">&#128293;</div>
+            <div class="cd"></div>
+            <div class="key">LMB / SPC</div>
+          </div>
+        </div>
+
+        <!-- Root: E -->
+        <div class="ability" id="ab-root">
+          <div class="ability-inner">
+            <div class="ico">&#127807;</div>
+            <div class="cd"></div>
+            <div class="key">E</div>
+          </div>
+        </div>
+
+      </div><!-- /abilitybar -->
+
+      <!-- Upgrade shop slots — hud.js fills innerHTML via updateUpgradePanel() -->
+      <div id="upgpanel"></div>
+    </div><!-- /centercol -->
+
+    <!-- MP gauge — bottom right -->
+    <!-- JS hook: mpfill.style.width (fill %), mpv.textContent (number) -->
+    <div id="manabar" class="statbar">
+      <span class="statbar-tag">MP</span>
+      <div class="statbar-track"><div id="mpfill"></div></div>
+      <span id="mpv">100</span>
+    </div>
+
+  </div><!-- /bottomhud -->
+
+  <!-- Eliminated overlay — JS toggles style.display -->
+  <div id="respawn">YOU WERE ELIMINATED</div>
+
+  <!-- Hint bar -->
+  <div id="hint">WASD &nbsp;&middot;&nbsp; aim &nbsp;&middot;&nbsp; LMB / Space attack &nbsp;&middot;&nbsp; E root &nbsp;&middot;&nbsp; 1–5 upgrades</div>
+
+</div><!-- /hud -->
+
+<!-- CDN deps — must load before any game module -->
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script src="https://unpkg.com/@colyseus/sdk@0.18.0/dist/colyseus.js"></script>
+
+<!-- game modules — dependency order matters (no bundler) -->
+<script src="scene.js"></script>    <!-- engine, camera, lights, environment -->
+<script src="entities.js"></script> <!-- player/creep/projectile views + GLB system -->
+<script src="camera.js"></script>   <!-- third-person (PUBG-style) follow camera -->
+<script src="hud.js"></script>      <!-- DOM HUD updates -->
+<script src="input.js"></script>    <!-- pointer-lock mouse-look + camera-relative WASD -->
+<script src="net.js"></script>      <!-- colyseus connect + input pump -->
+<script src="main.js"></script>     <!-- title screen + lobby + boot wiring -->
+</body>
+</html>

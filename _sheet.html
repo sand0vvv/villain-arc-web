@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><style>
+  html,body{margin:0;height:100%;background:#11151c;overflow:hidden}
+  #c{width:100vw;height:100vh;display:block}
+</style></head>
+<body>
+<canvas id="c"></canvas>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script>
+const SETS = {
+  heroes: ["heroes/knight.glb","heroes/warrior.glb","heroes/orc.glb","heroes/ranger.glb","heroes/paladin.glb","heroes/mage.glb"],
+  creeps: ["creeps/slime.glb","creeps/bat.glb","creeps/ghost.glb","creeps/skeleton.glb"],
+  env:    ["env/keep.glb","env/tree.glb","env/pine.glb","env/rock.glb","env/torch.glb","env/bonfire.glb"],
+};
+const set = new URLSearchParams(location.search).get("set") || "heroes";
+const files = SETS[set];
+const TARGET_H = 3;       // normalize each model to this height
+const SPACING = 4;
+
+const canvas = document.getElementById("c");
+const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true });
+const scene = new BABYLON.Scene(engine);
+scene.clearColor = new BABYLON.Color3(0.067, 0.082, 0.11);
+
+const hemi = new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0.3,1,0.2), scene); hemi.intensity = 1.15;
+const dir = new BABYLON.DirectionalLight("d", new BABYLON.Vector3(-0.4,-1,-0.5), scene); dir.intensity = 1.6; dir.position = new BABYLON.Vector3(10,20,10);
+const dir2 = new BABYLON.DirectionalLight("d2", new BABYLON.Vector3(0.5,-0.3,0.6), scene); dir2.intensity = 0.7;
+
+const ground = BABYLON.MeshBuilder.CreateGround("g", { width: 100, height: 40 }, scene);
+const gm = new BABYLON.StandardMaterial("gm", scene); gm.diffuseColor = new BABYLON.Color3(0.13,0.12,0.1); gm.specularColor = BABYLON.Color3.Black();
+ground.material = gm;
+
+const totalW = (files.length - 1) * SPACING;
+const cam = new BABYLON.ArcRotateCamera("cam", Math.PI/2, 1.05, totalW * 0.62 + 5, new BABYLON.Vector3(0, TARGET_H*0.5, 0), scene);
+cam.fov = 0.9;
+
+let loaded = 0;
+files.forEach((f, i) => {
+  BABYLON.SceneLoader.ImportMeshAsync("", "/models/", f, scene).then((res) => {
+    const root = new BABYLON.TransformNode("r"+i, scene);
+    res.meshes.forEach((m) => { if (!m.parent) m.parent = root; });
+    // normalize height via hierarchy bbox
+    const bb = root.getHierarchyBoundingVectors();
+    const h = Math.max(0.001, bb.max.y - bb.min.y);
+    const s = TARGET_H / h;
+    root.scaling.setAll(s);
+    const bb2 = root.getHierarchyBoundingVectors();
+    root.position.x = (i - (files.length-1)/2) * SPACING;
+    root.position.y = -bb2.min.y;          // sit on ground
+    root.rotation.y = 0;                    // face camera (Quaternius forward = +Z)
+    // play an idle-ish animation
+    const groups = res.animationGroups || [];
+    let g = groups.find(a => /idle|flying_idle|bat_flying/i.test(a.name)) || groups[0];
+    groups.forEach(a => a.stop());
+    if (g) g.start(true);
+    loaded++;
+    if (loaded === files.length) window.SHEET_READY = true;
+  }).catch((e) => { console.error("load fail", f, e.message); loaded++; if (loaded === files.length) window.SHEET_READY = true; });
+});
+
+engine.runRenderLoop(() => scene.render());
+window.addEventListener("resize", () => engine.resize());
+</script>
+</body></html>
